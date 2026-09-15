@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   UnauthorizedException,
@@ -31,16 +32,21 @@ export class AuthService {
     if (existing) throw new ConflictException('Email is already registered');
 
     const hashed = await bcrypt.hash(dto.password, 10);
+    const verificationToken = randomBytes(24).toString('hex');
     const user = this.usersRepository.create({
       ...dto,
       password: hashed,
       role: Role.CUSTOMER,
+      emailVerificationToken: verificationToken,
     });
     const saved = await this.usersRepository.save(user);
+
+    const verifyUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`;
+    this.mailerService.sendVerificationEmail(saved.email, verifyUrl).catch(() => undefined);
+
     return this.buildAuthResponse(saved);
   }
 
-  // Admin-only: create staff (manager/admin) accounts
   async createStaff(dto: CreateStaffDto) {
     const existing = await this.usersRepository.findOne({
       where: { email: dto.email },
@@ -48,7 +54,11 @@ export class AuthService {
     if (existing) throw new ConflictException('Email is already registered');
 
     const hashed = await bcrypt.hash(dto.password, 10);
-    const user = this.usersRepository.create({ ...dto, password: hashed });
+    const user = this.usersRepository.create({
+      ...dto,
+      password: hashed,
+      isEmailVerified: true, // staff accounts are created by an admin, trusted by default
+    });
     const saved = await this.usersRepository.save(user);
     return this.sanitize(saved);
   }
@@ -57,7 +67,9 @@ export class AuthService {
     const user = await this.usersRepository.findOne({
       where: { email: dto.email },
     });
-    if (!user) throw new UnauthorizedException('Invalid credentials');
+    if (!user || !user.password) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
 
     const matches = await bcrypt.compare(dto.password, user.password);
     if (!matches) throw new UnauthorizedException('Invalid credentials');
@@ -66,8 +78,66 @@ export class AuthService {
     return this.buildAuthResponse(user);
   }
 
-  // Always responds the same way whether or not the email exists, so an
-  // attacker can't use this endpoint to discover which emails are registered.
+  // Called from the Google OAuth callback after Passport verifies the profile.
+  async loginOrRegisterWithGoogle(profile: { googleId: string; email: string; name: string }) {
+    if (!profile.email) {
+      throw new BadRequestException('Google account has no email');
+    }
+
+    let user = await this.usersRepository.findOne({ where: { googleId: profile.googleId } });
+    if (!user) {
+      user = await this.usersRepository.findOne({ where: { email: profile.email } });
+    }
+
+    if (!user) {
+      user = this.usersRepository.create({
+        name: profile.name || profile.email.split('@')[0],
+        email: profile.email,
+        googleId: profile.googleId,
+        role: Role.CUSTOMER,
+        isEmailVerified: true, // Google already verified this email
+        password: null,
+      });
+      user = await this.usersRepository.save(user);
+    } else if (!user.googleId) {
+      // Link an existing password account to Google on first Google login.
+      user.googleId = profile.googleId;
+      user.isEmailVerified = true;
+      user = await this.usersRepository.save(user);
+    }
+
+    if (!user.isActive) throw new UnauthorizedException('Account disabled');
+    return this.buildAuthResponse(user);
+  }
+
+  async verifyEmail(token: string) {
+    const user = await this.usersRepository.findOne({
+      where: { emailVerificationToken: token },
+    });
+    if (!user) throw new BadRequestException('Invalid or expired verification link');
+
+    user.isEmailVerified = true;
+    user.emailVerificationToken = null;
+    await this.usersRepository.save(user);
+    return { message: 'Email verified successfully.' };
+  }
+
+  async resendVerification(userId: string) {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) throw new BadRequestException('User not found');
+    if (user.isEmailVerified) {
+      return { message: 'Your email is already verified.' };
+    }
+
+    const token = randomBytes(24).toString('hex');
+    user.emailVerificationToken = token;
+    await this.usersRepository.save(user);
+
+    const verifyUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/verify-email?token=${token}`;
+    await this.mailerService.sendVerificationEmail(user.email, verifyUrl);
+    return { message: 'Verification email sent.' };
+  }
+
   async forgotPassword(dto: ForgotPasswordDto) {
     const user = await this.usersRepository.findOne({ where: { email: dto.email } });
     if (user) {
@@ -106,7 +176,12 @@ export class AuthService {
   }
 
   private buildAuthResponse(user: User) {
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      tokenVersion: user.tokenVersion,
+    };
     return {
       accessToken: this.jwtService.sign(payload),
       user: this.sanitize(user),

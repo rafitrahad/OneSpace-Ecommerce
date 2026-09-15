@@ -6,8 +6,8 @@ export async function getCart() {
   return data;
 }
 
-export async function addToCart(productId: string, quantity: number) {
-  const { data } = await api.post<CartItem>('/cart', { productId, quantity });
+export async function addToCart(productId: string, quantity: number, variant?: string) {
+  const { data } = await api.post<CartItem>('/cart', { productId, quantity, variant });
   return data;
 }
 

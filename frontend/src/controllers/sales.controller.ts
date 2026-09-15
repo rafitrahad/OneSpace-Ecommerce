@@ -19,3 +19,19 @@ export async function getRevenueByDay(days?: number) {
   });
   return data as { date: string; revenue: number; orders: number }[];
 }
+
+async function downloadCsv(path: string, filename: string) {
+  const { data } = await api.get(path, { responseType: 'blob' });
+  const url = window.URL.createObjectURL(new Blob([data]));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+export function downloadSalesCsv() {
+  return downloadCsv('/sales/export/csv', 'sales-report.csv');
+}

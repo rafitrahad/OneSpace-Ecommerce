@@ -13,7 +13,7 @@ export function Modal({
 }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-md bg-surface p-6 shadow-lg">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-xl text-ink">{title}</h2>

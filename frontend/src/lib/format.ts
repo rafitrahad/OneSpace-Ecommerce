@@ -5,7 +5,7 @@ export function formatCurrency(value: number | string): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);
-  return `BDT ${formatted}`; // BDT Bangladeshi Taka sign
+  return `\u09F3${formatted}`; // ৳ Bangladeshi Taka sign
 }
 
 export function formatDate(value: string): string {

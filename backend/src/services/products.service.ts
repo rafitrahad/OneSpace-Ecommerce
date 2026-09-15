@@ -2,16 +2,25 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from '../models/product.model';
+import { ActivityAction } from '../models/enums';
 import {
   CreateProductDto,
   ProductQueryDto,
   UpdateProductDto,
 } from '../dto/product.dto';
+import { ActivityLogService } from './activity-log.service';
+import { MailerService } from './mailer.service';
+import { UsersService } from './users.service';
+
+const LOW_STOCK_THRESHOLD = 10;
 
 @Injectable()
 export class ProductsService {
   constructor(
     @InjectRepository(Product) private productsRepository: Repository<Product>,
+    private activityLogService: ActivityLogService,
+    private mailerService: MailerService,
+    private usersService: UsersService,
   ) {}
 
   async findAll(query: ProductQueryDto) {
@@ -48,7 +57,6 @@ export class ProductsService {
     return { items, total, page, limit, pageCount: Math.ceil(total / limit) };
   }
 
-  // Admin/Manager: see all products including inactive
   findAllForStaff() {
     return this.productsRepository.find({ order: { createdAt: 'DESC' } });
   }
@@ -59,20 +67,62 @@ export class ProductsService {
     return product;
   }
 
-  create(dto: CreateProductDto) {
-    const product = this.productsRepository.create(dto);
-    return this.productsRepository.save(product);
+  // Simple "you may also like": same category, excluding this product.
+  async related(id: string, limit = 4) {
+    const product = await this.findOne(id);
+    if (!product.categoryId) return [];
+    return this.productsRepository.find({
+      where: { categoryId: product.categoryId, isActive: true },
+      take: limit + 1,
+      order: { createdAt: 'DESC' },
+    }).then((items) => items.filter((p) => p.id !== id).slice(0, limit));
   }
 
-  async update(id: string, dto: UpdateProductDto) {
-    await this.findOne(id);
-    await this.productsRepository.update(id, dto);
-    return this.findOne(id);
+  async create(dto: CreateProductDto, actor: { id: string; name: string }) {
+    const product = this.productsRepository.create(dto as Partial<Product>);
+    const saved = await this.productsRepository.save(product);
+    this.activityLogService.record({
+      userId: actor.id,
+      userName: actor.name,
+      action: ActivityAction.CREATE,
+      entityType: 'product',
+      entityId: saved.id,
+      description: `Created product "${saved.name}"`,
+    });
+    return saved;
   }
 
-  async remove(id: string) {
-    await this.findOne(id);
+  async update(id: string, dto: UpdateProductDto, actor: { id: string; name: string }) {
+    const before = await this.findOne(id);
+    await this.productsRepository.update(id, dto as Partial<Product>);
+    const updated = await this.findOne(id);
+
+    this.activityLogService.record({
+      userId: actor.id,
+      userName: actor.name,
+      action: ActivityAction.UPDATE,
+      entityType: 'product',
+      entityId: id,
+      description: `Updated product "${updated.name}"`,
+    });
+
+    if (before.stock > LOW_STOCK_THRESHOLD && updated.stock <= LOW_STOCK_THRESHOLD) {
+      this.sendLowStockAlert(updated);
+    }
+    return updated;
+  }
+
+  async remove(id: string, actor: { id: string; name: string }) {
+    const product = await this.findOne(id);
     await this.productsRepository.delete(id);
+    this.activityLogService.record({
+      userId: actor.id,
+      userName: actor.name,
+      action: ActivityAction.DELETE,
+      entityType: 'product',
+      entityId: id,
+      description: `Deleted product "${product.name}"`,
+    });
     return { deleted: true };
   }
 
@@ -83,6 +133,26 @@ export class ProductsService {
       throw new BadRequestException('Insufficient stock');
     }
     await this.productsRepository.update(id, { stock: newStock });
-    return this.findOne(id);
+    const updated = await this.findOne(id);
+
+    if (product.stock > LOW_STOCK_THRESHOLD && newStock <= LOW_STOCK_THRESHOLD) {
+      this.sendLowStockAlert(updated);
+    }
+    return updated;
+  }
+
+  private async sendLowStockAlert(product: Product) {
+    try {
+      const staff = await this.usersService.findStaffEmails();
+      for (const email of staff) {
+        await this.mailerService.send(
+          email,
+          `Low stock alert: ${product.name}`,
+          `${product.name} is down to ${product.stock} units (threshold: ${LOW_STOCK_THRESHOLD}). Consider restocking soon.`,
+        );
+      }
+    } catch {
+      // never let alerting break the main operation
+    }
   }
 }

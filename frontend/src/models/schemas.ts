@@ -22,6 +22,13 @@ export const registerSchema = z.object({
 });
 export type RegisterInput = z.infer<typeof registerSchema>;
 
+export const profileSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+});
+export type ProfileInput = z.infer<typeof profileSchema>;
+
 export const forgotPasswordSchema = z.object({
   email: z.string().email('Enter a valid email'),
 });
@@ -50,13 +57,6 @@ export const changePasswordSchema = z
   });
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 
-export const profileSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  phone: z.string().optional(),
-  address: z.string().optional(),
-});
-export type ProfileInput = z.infer<typeof profileSchema>;
-
 export const categorySchema = z.object({
   name: z.string().min(2, 'Category name is required'),
   description: z.string().optional(),
@@ -69,6 +69,8 @@ export const productSchema = z.object({
   price: z.coerce.number().min(0, 'Price cannot be negative'),
   stock: z.coerce.number().int().min(0, 'Stock cannot be negative'),
   imageUrl: z.string().optional(),
+  images: z.array(z.string()).optional(),
+  variantsText: z.string().optional(), // "Size: S, M, L" per line - parsed in the view
   categoryId: z.string().optional(),
 });
 export type ProductInput = z.infer<typeof productSchema>;
@@ -89,8 +91,35 @@ export const inventoryAdjustSchema = z.object({
 });
 export type InventoryAdjustInput = z.infer<typeof inventoryAdjustSchema>;
 
-export const checkoutSchema = z.object({
-  shippingAddress: z.string().min(4, 'Enter a shipping address'),
-  note: z.string().optional(),
-});
+export const checkoutSchema = z
+  .object({
+    shippingAddress: z.string().min(4, 'Enter a shipping address'),
+    note: z.string().optional(),
+    paymentMethod: z.enum(['cod', 'bkash', 'nagad']),
+    paymentTransactionId: z.string().optional(),
+    couponCode: z.string().optional(),
+  })
+  .refine(
+    (data) => data.paymentMethod === 'cod' || !!data.paymentTransactionId?.trim(),
+    {
+      message: 'Enter the transaction ID from your payment',
+      path: ['paymentTransactionId'],
+    },
+  );
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
+
+export const reviewSchema = z.object({
+  rating: z.coerce.number().int().min(1).max(5),
+  comment: z.string().optional(),
+});
+export type ReviewInput = z.infer<typeof reviewSchema>;
+
+export const couponSchema = z.object({
+  code: z.string().min(3, 'Code must be at least 3 characters'),
+  type: z.enum(['percentage', 'fixed']),
+  value: z.coerce.number().min(0),
+  minOrderAmount: z.coerce.number().min(0).optional(),
+  expiresAt: z.string().optional(),
+  usageLimit: z.coerce.number().int().min(1).optional(),
+});
+export type CouponInput = z.infer<typeof couponSchema>;

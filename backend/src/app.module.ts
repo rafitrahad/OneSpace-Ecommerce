@@ -13,6 +13,9 @@ import { InventoryModule } from './modules/inventory.module';
 import { CartModule } from './modules/cart.module';
 import { OrdersModule } from './modules/orders.module';
 import { SalesModule } from './modules/sales.module';
+import { ReviewsModule } from './modules/reviews.module';
+import { CouponsModule } from './modules/coupons.module';
+import { ActivityLogModule } from './modules/activity-log.module';
 
 @Module({
   imports: [
@@ -22,8 +25,6 @@ import { SalesModule } from './modules/sales.module';
       useFactory: (config: ConfigService) =>
         config.get('database') as import('@nestjs/typeorm').TypeOrmModuleOptions,
     }),
-    // Global rate limit: 100 requests per minute per IP by default.
-    // Auth endpoints override this with a much stricter limit (see auth.controller.ts).
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
@@ -38,6 +39,9 @@ import { SalesModule } from './modules/sales.module';
     CartModule,
     OrdersModule,
     SalesModule,
+    ReviewsModule,
+    CouponsModule,
+    ActivityLogModule,
   ],
   providers: [
     {

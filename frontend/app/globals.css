@@ -2,12 +2,64 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+  Color tokens as RGB triples (no commas) so Tailwind's `rgb(var(--x) / <alpha>)`
+  opacity syntax works, e.g. text-pine-700/60. Light values live on :root;
+  dark values override them under .dark, applied to <html> by ThemeController.
+*/
+:root {
+  --color-paper: 238 240 231;
+  --color-surface: 255 255 255;
+  --color-ink: 20 23 26;
+  --color-line: 216 222 213;
+
+  --color-pine-50: 234 240 236;
+  --color-pine-100: 203 218 207;
+  --color-pine-300: 79 122 95;
+  --color-pine-500: 31 74 58;
+  --color-pine-600: 25 60 47;
+  --color-pine-700: 18 43 34;
+  --color-pine-900: 11 26 21;
+
+  --color-copper-100: 243 223 200;
+  --color-copper-300: 221 162 95;
+  --color-copper-400: 208 143 69;
+  --color-copper-500: 193 96 43;
+  --color-copper-600: 163 79 34;
+
+  color-scheme: light;
+}
+
+.dark {
+  --color-paper: 18 21 15;
+  --color-surface: 27 31 23;
+  --color-ink: 236 239 231;
+  --color-line: 51 59 47;
+
+  --color-pine-50: 31 38 25;
+  --color-pine-100: 41 51 31;
+  --color-pine-300: 140 183 155;
+  --color-pine-500: 46 115 80;
+  --color-pine-600: 39 95 66;
+  --color-pine-700: 196 207 192;
+  --color-pine-900: 245 248 242;
+
+  --color-copper-100: 61 44 22;
+  --color-copper-300: 217 161 94;
+  --color-copper-400: 224 174 110;
+  --color-copper-500: 226 166 91;
+  --color-copper-600: 240 192 133;
+
+  color-scheme: dark;
+}
+
 body {
-  background-color: #EEF0E7;
-  color: #14171A;
+  background-color: rgb(var(--color-paper));
+  color: rgb(var(--color-ink));
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 :focus-visible {
-  outline: 2px solid #1F4A3A;
+  outline: 2px solid rgb(var(--color-pine-500));
   outline-offset: 2px;
 }

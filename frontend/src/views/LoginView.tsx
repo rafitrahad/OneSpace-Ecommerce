@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
 import { loginSchema, LoginInput } from '@/models/schemas';
-import { useAuth } from '@/controllers/auth.controller';
+import { useAuth, googleLoginUrl } from '@/controllers/auth.controller';
 import { apiErrorMessage } from '@/lib/api';
 import { Input } from '@/components/Input';
 import { Button } from '@/components/Button';
@@ -44,15 +44,29 @@ export function LoginView() {
           {...register('password')}
           error={errors.password?.message}
         />
-        
+        <div className="-mt-2 text-right">
+          <Link href="/forgot-password" className="text-sm text-pine-500 underline">
+            Forgot password?
+          </Link>
+        </div>
         {serverError && <p className="text-sm text-red-600">{serverError}</p>}
         <Button type="submit" disabled={isSubmitting} className="mt-2">
           {isSubmitting ? 'Logging in…' : 'Log in'}
         </Button>
       </form>
-      <Link href="/forgot-password" className="text-sm text-pine-500 underline">
-          Forgot your password?
-        </Link>
+
+      <div className="mt-4 flex items-center gap-3 text-xs text-pine-700/50">
+        <div className="h-px flex-1 bg-line" />
+        or
+        <div className="h-px flex-1 bg-line" />
+      </div>
+      <a
+        href={googleLoginUrl()}
+        className="mt-4 flex items-center justify-center gap-2 rounded-pill border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-pine-50"
+      >
+        Continue with Google
+      </a>
+
       <p className="mt-6 text-sm text-pine-700/70">
         New here?{' '}
         <Link href="/register" className="text-pine-500 underline">

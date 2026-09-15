@@ -7,6 +7,9 @@ import { Order } from '../models/order.model';
 import { OrderItem } from '../models/order-item.model';
 import { CartItem } from '../models/cart-item.model';
 import { InventoryLog } from '../models/inventory-log.model';
+import { Review } from '../models/review.model';
+import { Coupon } from '../models/coupon.model';
+import { ActivityLog } from '../models/activity-log.model';
 
 export default registerAs(
   'database',
@@ -17,7 +20,18 @@ export default registerAs(
     username: process.env.DB_USERNAME || 'postgres',
     password: process.env.DB_PASSWORD || 'postgres',
     database: process.env.DB_NAME || 'shopmvc',
-    entities: [User, Category, Product, Order, OrderItem, CartItem, InventoryLog],
+    entities: [
+      User,
+      Category,
+      Product,
+      Order,
+      OrderItem,
+      CartItem,
+      InventoryLog,
+      Review,
+      Coupon,
+      ActivityLog,
+    ],
     synchronize: true, // dev only - use migrations in production
     logging: false,
   }),

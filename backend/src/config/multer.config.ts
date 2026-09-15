@@ -24,10 +24,15 @@ export const imageUploadOptions = {
     callback: (error: Error | null, accept: boolean) => void,
   ) => {
     if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
-      callback(new BadRequestException('Only JPEG, PNG, WEBP, or GIF images are allowed'), false);
+      callback(
+        new BadRequestException('Only JPEG, PNG, WEBP, or GIF images are allowed'),
+        false,
+      );
       return;
     }
     callback(null, true);
   },
-  limits: { fileSize: MAX_FILE_SIZE_BYTES },
+  limits: {
+    fileSize: MAX_FILE_SIZE_BYTES,
+  },
 };

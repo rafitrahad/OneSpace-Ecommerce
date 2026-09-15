@@ -32,6 +32,9 @@ export class CartItem {
   @Column({ default: 1 })
   quantity: number;
 
+  @Column({ nullable: true })
+  variant: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

@@ -12,7 +12,7 @@ import {
 } from '@/controllers/products.controller';
 import { listCategories } from '@/controllers/categories.controller';
 import { productSchema, ProductInput } from '@/models/schemas';
-import { Product, Category } from '@/models/types';
+import { Product, Category, VariantGroup } from '@/models/types';
 import { formatCurrency } from '@/lib/format';
 import { apiErrorMessage } from '@/lib/api';
 import { Button } from '@/components/Button';
@@ -22,12 +22,35 @@ import { Select } from '@/components/Select';
 import { EmptyState } from '@/components/EmptyState';
 import { RoleGuard } from '@/components/RoleGuard';
 
+// "Size: S, M, L" per line <-> VariantGroup[]
+function parseVariantsText(text: string): VariantGroup[] {
+  return text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [name, optionsStr] = line.split(':');
+      const options = (optionsStr || '')
+        .split(',')
+        .map((o) => o.trim())
+        .filter(Boolean);
+      return { name: (name || '').trim(), options };
+    })
+    .filter((g) => g.name && g.options.length > 0);
+}
+
+function stringifyVariants(variants?: VariantGroup[] | null): string {
+  if (!variants || variants.length === 0) return '';
+  return variants.map((g) => `${g.name}: ${g.options.join(', ')}`).join('\n');
+}
+
 function ProductsInner() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [editing, setEditing] = useState<Product | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [error, setError] = useState('');
+  const [gallery, setGallery] = useState<string[]>([]);
 
   const {
     register,
@@ -49,13 +72,21 @@ function ProductsInner() {
     setUploading(true);
     try {
       const url = await uploadProductImage(file);
-      setValue('imageUrl', url, { shouldDirty: true });
+      if (!currentImageUrl) {
+        setValue('imageUrl', url, { shouldDirty: true });
+      } else {
+        setGallery((prev) => [...prev, url]);
+      }
     } catch (err) {
       setUploadError(apiErrorMessage(err));
     } finally {
       setUploading(false);
       e.target.value = '';
     }
+  }
+
+  function removeGalleryImage(url: string) {
+    setGallery((prev) => prev.filter((g) => g !== url));
   }
 
   function load() {
@@ -69,18 +100,29 @@ function ProductsInner() {
 
   function openCreate() {
     setEditing(null);
-    reset({ name: '', description: '', price: 0, stock: 0, imageUrl: '', categoryId: '' });
+    setGallery([]);
+    reset({
+      name: '',
+      description: '',
+      price: 0,
+      stock: 0,
+      imageUrl: '',
+      variantsText: '',
+      categoryId: '',
+    });
     setModalOpen(true);
   }
 
   function openEdit(product: Product) {
     setEditing(product);
+    setGallery(product.images || []);
     reset({
       name: product.name,
       description: product.description || '',
       price: Number(product.price),
       stock: product.stock,
       imageUrl: product.imageUrl || '',
+      variantsText: stringifyVariants(product.variants),
       categoryId: product.categoryId || '',
     });
     setModalOpen(true);
@@ -89,7 +131,13 @@ function ProductsInner() {
   async function onSubmit(values: ProductInput) {
     setError('');
     try {
-      const payload = { ...values, categoryId: values.categoryId || undefined };
+      const { variantsText, ...rest } = values;
+      const payload = {
+        ...rest,
+        categoryId: values.categoryId || undefined,
+        images: gallery,
+        variants: variantsText ? parseVariantsText(variantsText) : [],
+      };
       if (editing) {
         await updateProduct(editing.id, payload);
       } else {
@@ -180,10 +228,10 @@ function ProductsInner() {
           </Select>
 
           <div>
-            <Input label="Image URL" {...register('imageUrl')} placeholder="https://..." />
+            <Input label="Cover image URL" {...register('imageUrl')} placeholder="https://..." />
             <div className="mt-2 flex items-center gap-3">
               <label className="cursor-pointer rounded-pill border border-line px-3 py-1.5 text-xs font-medium text-pine-700 hover:bg-pine-50">
-                {uploading ? 'Uploading…' : 'Upload a file instead'}
+                {uploading ? 'Uploading…' : currentImageUrl ? 'Add gallery photo' : 'Upload a file instead'}
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/webp,image/gif"
@@ -194,15 +242,42 @@ function ProductsInner() {
               </label>
               {currentImageUrl && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={currentImageUrl}
-                  alt="Preview"
-                  className="h-10 w-10 rounded object-cover"
-                />
+                <img src={currentImageUrl} alt="Cover preview" className="h-10 w-10 rounded object-cover" />
               )}
             </div>
             {uploadError && <p className="mt-1 text-xs text-red-600">{uploadError}</p>}
+
+            {gallery.length > 0 && (
+              <div className="mt-2">
+                <p className="mb-1 text-xs text-pine-700/60">Additional gallery photos:</p>
+                <div className="flex flex-wrap gap-2">
+                  {gallery.map((url) => (
+                    <div key={url} className="relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={url} alt="" className="h-12 w-12 rounded object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeGalleryImage(url)}
+                        className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] text-white"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
+
+          <Textarea
+            label="Variants (optional)"
+            rows={2}
+            placeholder={'Size: S, M, L\nColor: Black, White'}
+            {...register('variantsText')}
+          />
+          <p className="-mt-3 text-xs text-pine-700/50">
+            One group per line, format: Group name: option1, option2, option3
+          </p>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
           <Button type="submit" disabled={isSubmitting}>

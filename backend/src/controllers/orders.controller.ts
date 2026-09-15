@@ -5,22 +5,23 @@ import {
   Param,
   Patch,
   Post,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { OrdersService } from '../services/orders.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RolesGuard } from '../guards/roles.guard';
 import { Roles } from '../decorators/roles.decorator';
 import { CurrentUser } from '../decorators/current-user.decorator';
 import { Role } from '../models/enums';
-import { CreateOrderDto, UpdateOrderStatusDto } from '../dto/order.dto';
+import { CreateOrderDto, UpdateOrderStatusDto, UpdatePaymentStatusDto } from '../dto/order.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('orders')
 export class OrdersController {
   constructor(private ordersService: OrdersService) {}
 
-  // Customer: checkout from cart
   @UseGuards(RolesGuard)
   @Roles(Role.CUSTOMER)
   @Post('checkout')
@@ -32,7 +33,6 @@ export class OrdersController {
     return this.ordersService.checkout(userId, email, dto);
   }
 
-  // Customer: view own order history
   @UseGuards(RolesGuard)
   @Roles(Role.CUSTOMER)
   @Get('mine')
@@ -40,7 +40,6 @@ export class OrdersController {
     return this.ordersService.findMyOrders(userId);
   }
 
-  // Admin/Manager: view all orders
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN, Role.MANAGER)
   @Get()
@@ -48,20 +47,44 @@ export class OrdersController {
     return this.ordersService.findAll();
   }
 
+  // Must come before ':id' so it isn't swallowed by the param route.
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.MANAGER)
+  @Get('export/csv')
+  async exportCsv(@Res() res: Response) {
+    const csv = await this.ordersService.exportCsv();
+    res.header('Content-Type', 'text/csv');
+    res.header('Content-Disposition', 'attachment; filename="orders.csv"');
+    res.send(csv);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.ordersService.findOne(id);
   }
 
-  // Admin/Manager: update order status (process order)
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN, Role.MANAGER)
   @Patch(':id/status')
-  updateStatus(@Param('id') id: string, @Body() dto: UpdateOrderStatusDto) {
-    return this.ordersService.updateStatus(id, dto);
+  updateStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateOrderStatusDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.ordersService.updateStatus(id, dto, user);
   }
 
-  // Customer cancels their own order; Admin/Manager can also cancel
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.MANAGER)
+  @Patch(':id/payment-status')
+  updatePaymentStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdatePaymentStatusDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.ordersService.updatePaymentStatus(id, dto, user);
+  }
+
   @Patch(':id/cancel')
   cancel(
     @CurrentUser('id') userId: string,

@@ -10,9 +10,11 @@ import { Order } from '../models/order.model';
 import { OrderItem } from '../models/order-item.model';
 import { CartItem } from '../models/cart-item.model';
 import { Product } from '../models/product.model';
-import { OrderStatus, Role } from '../models/enums';
-import { CreateOrderDto, UpdateOrderStatusDto } from '../dto/order.dto';
+import { OrderStatus, PaymentMethod, PaymentStatus, Role, ActivityAction } from '../models/enums';
+import { CreateOrderDto, UpdateOrderStatusDto, UpdatePaymentStatusDto } from '../dto/order.dto';
 import { MailerService } from './mailer.service';
+import { CouponsService } from './coupons.service';
+import { ActivityLogService } from './activity-log.service';
 
 @Injectable()
 export class OrdersService {
@@ -22,6 +24,8 @@ export class OrdersService {
     @InjectRepository(Product) private productsRepository: Repository<Product>,
     private dataSource: DataSource,
     private mailerService: MailerService,
+    private couponsService: CouponsService,
+    private activityLogService: ActivityLogService,
   ) {}
 
   // Customer: checkout - turns current cart into an order
@@ -30,9 +34,14 @@ export class OrdersService {
     if (cartItems.length === 0) {
       throw new BadRequestException('Your cart is empty');
     }
+    if (dto.paymentMethod !== PaymentMethod.COD && !dto.paymentTransactionId) {
+      throw new BadRequestException(
+        'Please enter the transaction ID from your mobile banking payment',
+      );
+    }
 
     return this.dataSource.transaction(async (manager) => {
-      let total = 0;
+      let subtotal = 0;
       const orderItems: OrderItem[] = [];
 
       for (const cartItem of cartItems) {
@@ -53,16 +62,45 @@ export class OrdersService {
           productId: product.id,
           quantity: cartItem.quantity,
           price: product.price,
+          variant: cartItem.variant,
         });
         orderItems.push(item);
-        total += Number(product.price) * cartItem.quantity;
+        subtotal += Number(product.price) * cartItem.quantity;
       }
+
+      let discountAmount = 0;
+      let couponCode: string | undefined;
+      if (dto.couponCode) {
+        const result = await this.couponsService.validateAndCompute(
+          dto.couponCode,
+          subtotal,
+        );
+        discountAmount = result.discountAmount;
+        couponCode = result.coupon.code;
+        await this.couponsService.incrementUsage(result.coupon.id);
+      }
+
+      const total = subtotal - discountAmount;
+
+      // COD is "pay on delivery" so nothing to verify yet. Mobile banking
+      // payments start as pending until staff manually confirm the
+      // transaction ID against their bKash/Nagad merchant account.
+      const paymentStatus =
+        dto.paymentMethod === PaymentMethod.COD
+          ? PaymentStatus.PENDING
+          : PaymentStatus.PENDING;
 
       const order = manager.create(Order, {
         userId,
         items: orderItems,
+        subtotal,
+        discountAmount,
         total,
+        couponCode,
         status: OrderStatus.PENDING,
+        paymentMethod: dto.paymentMethod,
+        paymentStatus,
+        paymentTransactionId: dto.paymentTransactionId,
         shippingAddress: dto.shippingAddress,
         note: dto.note,
       });
@@ -85,7 +123,6 @@ export class OrdersService {
     });
   }
 
-  // Admin/Manager: view all orders
   findAll() {
     return this.ordersRepository.find({ order: { createdAt: 'DESC' } });
   }
@@ -96,13 +133,36 @@ export class OrdersService {
     return order;
   }
 
-  async updateStatus(id: string, dto: UpdateOrderStatusDto) {
+  async updateStatus(id: string, dto: UpdateOrderStatusDto, actor: { id: string; name: string }) {
     const order = await this.findOne(id);
     order.status = dto.status;
     const saved = await this.ordersRepository.save(order);
     this.mailerService
       .sendOrderStatusUpdate(order.user.email, order.id, dto.status)
       .catch(() => undefined);
+    this.activityLogService.record({
+      userId: actor.id,
+      userName: actor.name,
+      action: ActivityAction.STATUS_CHANGE,
+      entityType: 'order',
+      entityId: id,
+      description: `Set order #${id.slice(0, 8)} status to ${dto.status}`,
+    });
+    return saved;
+  }
+
+  async updatePaymentStatus(id: string, dto: UpdatePaymentStatusDto, actor: { id: string; name: string }) {
+    const order = await this.findOne(id);
+    order.paymentStatus = dto.paymentStatus;
+    const saved = await this.ordersRepository.save(order);
+    this.activityLogService.record({
+      userId: actor.id,
+      userName: actor.name,
+      action: ActivityAction.STATUS_CHANGE,
+      entityType: 'order-payment',
+      entityId: id,
+      description: `Set order #${id.slice(0, 8)} payment status to ${dto.paymentStatus}`,
+    });
     return saved;
   }
 
@@ -130,5 +190,43 @@ export class OrdersService {
       order.status = OrderStatus.CANCELLED;
       return manager.save(order);
     });
+  }
+
+  // CSV export for accounting - admin/manager only.
+  async exportCsv(): Promise<string> {
+    const orders = await this.findAll();
+    const header = [
+      'Order ID',
+      'Customer',
+      'Email',
+      'Date',
+      'Status',
+      'Payment Method',
+      'Payment Status',
+      'Subtotal',
+      'Discount',
+      'Total',
+      'Coupon',
+    ];
+    const rows = orders.map((o) => [
+      o.id,
+      o.user?.name ?? '',
+      o.user?.email ?? '',
+      o.createdAt.toISOString(),
+      o.status,
+      o.paymentMethod,
+      o.paymentStatus,
+      o.subtotal,
+      o.discountAmount,
+      o.total,
+      o.couponCode ?? '',
+    ]);
+
+    const escape = (value: unknown) => {
+      const str = String(value ?? '');
+      return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+    };
+
+    return [header, ...rows].map((row) => row.map(escape).join(',')).join('\n');
   }
 }

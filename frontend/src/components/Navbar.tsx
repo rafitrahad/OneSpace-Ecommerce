@@ -22,7 +22,7 @@ export function Navbar() {
     <header className="border-b border-line bg-surface">
       <div className="mx-auto flex max-w-6xl items-center gap-6 px-6 py-4">
         <Link href="/" className="font-display text-2xl text-pine-700">
-          OneSpace &amp; Co.
+          OneSpace
         </Link>
 
         <form onSubmit={onSearch} className="flex-1">

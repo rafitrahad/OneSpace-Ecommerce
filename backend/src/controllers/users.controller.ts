@@ -14,7 +14,7 @@ import { RolesGuard } from '../guards/roles.guard';
 import { Roles } from '../decorators/roles.decorator';
 import { CurrentUser } from '../decorators/current-user.decorator';
 import { Role } from '../models/enums';
-import { UpdateUserDto, UpdateUserRoleDto, ChangePasswordDto } from '../dto/user.dto';
+import { UpdateUserDto, UpdateUserRoleDto, ChangePasswordDto, UpdateThemeDto } from '../dto/user.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('users')
@@ -44,6 +44,13 @@ export class UsersController {
   @Patch('me/password')
   changeMyPassword(@CurrentUser('id') id: string, @Body() dto: ChangePasswordDto) {
     return this.usersService.changePassword(id, dto);
+  }
+
+  // Persists the user's light/dark/system preference so it follows them
+  // to any device they log in on.
+  @Patch('me/theme')
+  updateMyTheme(@CurrentUser('id') id: string, @Body() dto: UpdateThemeDto) {
+    return this.usersService.updateTheme(id, dto);
   }
 
   @UseGuards(RolesGuard)

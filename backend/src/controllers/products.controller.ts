@@ -18,8 +18,13 @@ import { ProductsService } from '../services/products.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RolesGuard } from '../guards/roles.guard';
 import { Roles } from '../decorators/roles.decorator';
+import { CurrentUser } from '../decorators/current-user.decorator';
 import { Role } from '../models/enums';
-import { CreateProductDto, ProductQueryDto, UpdateProductDto } from '../dto/product.dto';
+import {
+  CreateProductDto,
+  ProductQueryDto,
+  UpdateProductDto,
+} from '../dto/product.dto';
 import { imageUploadOptions } from '../config/multer.config';
 
 @Controller('products')
@@ -38,7 +43,6 @@ export class ProductsController {
     return this.productsService.findAllForStaff();
   }
 
-  // Upload a product image file and get back a URL to use in imageUrl.
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.MANAGER)
   @Post('upload-image')
@@ -53,24 +57,29 @@ export class ProductsController {
     return this.productsService.findOne(id);
   }
 
+  @Get(':id/related')
+  related(@Param('id') id: string) {
+    return this.productsService.related(id);
+  }
+
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.MANAGER)
   @Post()
-  create(@Body() dto: CreateProductDto) {
-    return this.productsService.create(dto);
+  create(@Body() dto: CreateProductDto, @CurrentUser() user: any) {
+    return this.productsService.create(dto, user);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.MANAGER)
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateProductDto) {
-    return this.productsService.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdateProductDto, @CurrentUser() user: any) {
+    return this.productsService.update(id, dto, user);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.MANAGER)
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.productsService.remove(id);
+  remove(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.productsService.remove(id, user);
   }
 }

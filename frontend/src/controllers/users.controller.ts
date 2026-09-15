@@ -17,6 +17,14 @@ export async function updateMyProfile(input: ProfileInput) {
   return data;
 }
 
+export async function changeMyPassword(currentPassword: string, newPassword: string) {
+  const { data } = await api.patch<{ message: string }>('/users/me/password', {
+    currentPassword,
+    newPassword,
+  });
+  return data;
+}
+
 export async function updateUserRole(id: string, role: Role) {
   const { data } = await api.patch<User>(`/users/${id}/role`, { role });
   return data;
@@ -34,12 +42,5 @@ export async function deleteUser(id: string) {
 
 export async function createStaff(input: StaffInput) {
   const { data } = await api.post('/auth/staff', input);
-  return data;
-}
-export async function changeMyPassword(currentPassword: string, newPassword: string) {
-  const { data } = await api.patch<{ message: string }>('/users/me/password', {
-    currentPassword,
-    newPassword,
-  });
   return data;
 }

@@ -25,8 +25,9 @@ export class CartService {
       throw new BadRequestException('Not enough stock available');
     }
 
+    // Same product with a *different* variant is a separate cart line.
     let item = await this.cartRepository.findOne({
-      where: { userId, productId: dto.productId },
+      where: { userId, productId: dto.productId, variant: dto.variant ?? undefined },
     });
     if (item) {
       item.quantity += dto.quantity;
@@ -35,6 +36,7 @@ export class CartService {
         userId,
         productId: dto.productId,
         quantity: dto.quantity,
+        variant: dto.variant,
       });
     }
     return this.cartRepository.save(item);

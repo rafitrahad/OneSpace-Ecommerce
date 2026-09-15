@@ -32,4 +32,9 @@ export class OrderItem {
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   price: number;
+
+  // Human-readable selected variant, e.g. "Size: M". Simplified - not a
+  // separate stock-tracked entity, see Product.variants for why.
+  @Column({ nullable: true })
+  variant: string;
 }

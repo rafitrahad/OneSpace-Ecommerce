@@ -16,8 +16,11 @@ const navItems: NavItem[] = [
   { href: '/dashboard/categories', label: 'Categories', roles: ['admin'] },
   { href: '/dashboard/inventory', label: 'Inventory', roles: ['admin', 'manager'] },
   { href: '/dashboard/orders', label: 'Orders', roles: ['admin', 'manager'] },
+  { href: '/dashboard/coupons', label: 'Coupons', roles: ['admin'] },
   { href: '/dashboard/users', label: 'Customers & staff', roles: ['admin'] },
   { href: '/dashboard/staff', label: 'Staff roles', roles: ['admin'] },
+  { href: '/dashboard/activity-log', label: 'Activity log', roles: ['admin'] },
+  { href: '/profile', label: 'My account', roles: ['admin', 'manager'] },
 ];
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
@@ -33,7 +36,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       <aside className="w-64 shrink-0 border-r border-line bg-surface">
         <div className="border-b border-line px-6 py-5">
           <Link href="/" className="font-display text-xl text-pine-700">
-            OneSpace &amp; Co.
+            OneSpace
           </Link>
           <p className="mt-1 text-xs text-pine-700/50">
             {user?.role === 'admin' ? 'Admin console' : 'Shop manager console'}

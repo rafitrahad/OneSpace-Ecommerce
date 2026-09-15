@@ -11,7 +11,10 @@ import { Order } from '../models/order.model';
 import { OrderItem } from '../models/order-item.model';
 import { CartItem } from '../models/cart-item.model';
 import { InventoryLog } from '../models/inventory-log.model';
-import { Role } from '../models/enums';
+import { Review } from '../models/review.model';
+import { Coupon } from '../models/coupon.model';
+import { ActivityLog } from '../models/activity-log.model';
+import { Role, CouponType } from '../models/enums';
 
 async function run() {
   const dataSource = new DataSource({
@@ -21,7 +24,7 @@ async function run() {
     username: process.env.DB_USERNAME || 'postgres',
     password: process.env.DB_PASSWORD || 'postgres',
     database: process.env.DB_NAME || 'shopmvc',
-    entities: [User, Category, Product, Order, OrderItem, CartItem, InventoryLog],
+    entities: [User, Category, Product, Order, OrderItem, CartItem, InventoryLog, Review, Coupon, ActivityLog],
     synchronize: true,
   });
 
@@ -40,6 +43,7 @@ async function run() {
       email: 'admin@shopmvc.test',
       password: passwordHash,
       role: Role.ADMIN,
+      isEmailVerified: true,
     }),
   );
 
@@ -49,6 +53,7 @@ async function run() {
       email: 'manager@shopmvc.test',
       password: passwordHash,
       role: Role.MANAGER,
+      isEmailVerified: true,
     }),
   );
 
@@ -58,6 +63,7 @@ async function run() {
       email: 'customer@shopmvc.test',
       password: passwordHash,
       role: Role.CUSTOMER,
+      isEmailVerified: true,
     }),
   );
 
@@ -102,7 +108,18 @@ async function run() {
     }),
   ]);
 
+  const couponRepo = dataSource.getRepository(Coupon);
+  await couponRepo.save(
+    couponRepo.create({
+      code: 'WELCOME10',
+      type: CouponType.PERCENTAGE,
+      value: 10,
+      minOrderAmount: 0,
+    }),
+  );
+
   console.log('Seed complete.');
+  console.log('Demo coupon: WELCOME10 (10% off)');
   console.log('Admin:    admin@shopmvc.test / Password123!');
   console.log('Manager:  manager@shopmvc.test / Password123!');
   console.log('Customer: customer@shopmvc.test / Password123!');

@@ -1,12 +1,23 @@
 import {
+  IsArray,
   IsBoolean,
   IsNumber,
   IsOptional,
   IsString,
   IsUUID,
   Min,
+  ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+
+export class VariantGroupDto {
+  @IsString()
+  name: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  options: string[];
+}
 
 export class CreateProductDto {
   @IsString()
@@ -29,6 +40,17 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   imageUrl?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  images?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => VariantGroupDto)
+  variants?: VariantGroupDto[];
 
   @IsOptional()
   @IsUUID()
@@ -59,6 +81,17 @@ export class UpdateProductDto {
   @IsOptional()
   @IsString()
   imageUrl?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  images?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => VariantGroupDto)
+  variants?: VariantGroupDto[];
 
   @IsOptional()
   @IsUUID()

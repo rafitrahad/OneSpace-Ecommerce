@@ -1,5 +1,5 @@
 import { api } from '@/lib/api';
-import { Order, OrderStatus } from '@/models/types';
+import { Order, OrderStatus, PaymentStatus } from '@/models/types';
 import { CheckoutInput } from '@/models/schemas';
 
 export async function checkout(input: CheckoutInput) {
@@ -27,7 +27,28 @@ export async function updateOrderStatus(id: string, status: OrderStatus) {
   return data;
 }
 
+export async function updatePaymentStatus(id: string, paymentStatus: PaymentStatus) {
+  const { data } = await api.patch<Order>(`/orders/${id}/payment-status`, { paymentStatus });
+  return data;
+}
+
 export async function cancelOrder(id: string) {
   const { data } = await api.patch<Order>(`/orders/${id}/cancel`);
   return data;
+}
+
+async function downloadCsv(path: string, filename: string) {
+  const { data } = await api.get(path, { responseType: 'blob' });
+  const url = window.URL.createObjectURL(new Blob([data]));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+export function downloadOrdersCsv() {
+  return downloadCsv('/orders/export/csv', 'orders.csv');
 }

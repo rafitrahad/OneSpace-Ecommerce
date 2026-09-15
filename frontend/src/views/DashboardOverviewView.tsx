@@ -1,25 +1,43 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getSalesSummary, getTopProducts } from '@/controllers/sales.controller';
+import { getSalesSummary, getTopProducts, downloadSalesCsv } from '@/controllers/sales.controller';
 import { SalesSummary, TopProduct } from '@/models/types';
 import { formatCurrency } from '@/lib/format';
 import { StatTile, Card } from '@/components/Card';
+import { Button } from '@/components/Button';
 import { RoleGuard } from '@/components/RoleGuard';
 
 function OverviewInner() {
   const [summary, setSummary] = useState<SalesSummary | null>(null);
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     getSalesSummary().then(setSummary);
     getTopProducts(5).then(setTopProducts);
   }, []);
 
+  async function handleExport() {
+    setExporting(true);
+    try {
+      await downloadSalesCsv();
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div>
-      <h1 className="font-display text-3xl text-ink">Overview &amp; sales</h1>
-      <p className="mt-1 text-sm text-pine-700/60">A snapshot of how the shop is performing.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-3xl text-ink">Overview &amp; sales</h1>
+          <p className="mt-1 text-sm text-pine-700/60">A snapshot of how the shop is performing.</p>
+        </div>
+        <Button variant="ghost" onClick={handleExport} disabled={exporting}>
+          {exporting ? 'Exporting…' : 'Export report CSV'}
+        </Button>
+      </div>
 
       {summary && (
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">

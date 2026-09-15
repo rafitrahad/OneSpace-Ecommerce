@@ -18,3 +18,33 @@ export enum InventoryChangeType {
   ADJUSTMENT = 'adjustment',
   RETURN = 'return',
 }
+
+export enum PaymentMethod {
+  COD = 'cod',
+  BKASH = 'bkash',
+  NAGAD = 'nagad',
+}
+
+export enum PaymentStatus {
+  PENDING = 'pending', // awaiting payment / awaiting manual verification
+  PAID = 'paid',
+  FAILED = 'failed',
+}
+
+export enum CouponType {
+  PERCENTAGE = 'percentage',
+  FIXED = 'fixed',
+}
+
+export enum ActivityAction {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  STATUS_CHANGE = 'status_change',
+}
+
+export enum ThemePreference {
+  LIGHT = 'light',
+  DARK = 'dark',
+  SYSTEM = 'system',
+}

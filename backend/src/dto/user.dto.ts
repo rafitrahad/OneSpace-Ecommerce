@@ -1,5 +1,5 @@
 import { IsEmail, IsEnum, IsOptional, IsString, Matches, MinLength } from 'class-validator';
-import { Role } from '../models/enums';
+import { Role, ThemePreference } from '../models/enums';
 
 const STRONG_PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/;
 const STRONG_PASSWORD_MESSAGE =
@@ -48,4 +48,9 @@ export class ChangePasswordDto {
   @MinLength(8, { message: 'Password must be at least 8 characters' })
   @Matches(STRONG_PASSWORD_REGEX, { message: STRONG_PASSWORD_MESSAGE })
   newPassword: string;
+}
+
+export class UpdateThemeDto {
+  @IsEnum(ThemePreference)
+  themePreference: ThemePreference;
 }

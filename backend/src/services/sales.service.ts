@@ -87,4 +87,30 @@ export class SalesService {
       orders: Number(r.orders),
     }));
   }
+
+  async exportCsv(): Promise<string> {
+    const [summary, topProducts, revenueByDay] = await Promise.all([
+      this.summary(),
+      this.topProducts(20),
+      this.revenueByDay(90),
+    ]);
+
+    const lines: string[] = [];
+    lines.push('Summary');
+    lines.push('Total Revenue,Total Orders,Average Order Value');
+    lines.push(`${summary.totalRevenue},${summary.totalOrders},${summary.averageOrderValue}`);
+    lines.push('');
+    lines.push('Top Products');
+    lines.push('Product,Units Sold,Revenue');
+    for (const p of topProducts) {
+      lines.push(`${p.name},${p.unitsSold},${p.revenue}`);
+    }
+    lines.push('');
+    lines.push('Revenue By Day');
+    lines.push('Date,Revenue,Orders');
+    for (const r of revenueByDay) {
+      lines.push(`${r.date},${r.revenue},${r.orders}`);
+    }
+    return lines.join('\n');
+  }
 }
